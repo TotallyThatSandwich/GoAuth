@@ -2,12 +2,12 @@
 INSERT INTO users (
   username, hashed_password, user_token
 ) VALUES (
-  $1, $2, gen_random_uuid()
+  $1, $2, uuid_generate_v4()
 )
 RETURNING *;
 
 -- name: CheckUserAuth :one
-SELECT user_id, username, user_token
+SELECT *
 FROM users
 WHERE username = $1
   AND hashed_password = $2;
@@ -25,7 +25,8 @@ WHERE user_id = $1;
 
 -- name: ResetUserToken :one
 UPDATE users
-SET user_token = gen_random_uuid()
+SET user_token = uuid_generate_v4()
 WHERE user_id = $1
-RETURNING user_token;
+RETURNING *;
+
 

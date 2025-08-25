@@ -12,7 +12,7 @@ import (
 )
 
 const checkUserAuth = `-- name: CheckUserAuth :one
-SELECT user_id, username, user_token
+SELECT user_id, username, hashed_password, user_token
 FROM users
 WHERE username = $1
   AND hashed_password = $2
@@ -23,16 +23,15 @@ type CheckUserAuthParams struct {
 	HashedPassword string
 }
 
-type CheckUserAuthRow struct {
-	UserID    int64
-	Username  string
-	UserToken pgtype.UUID
-}
-
-func (q *Queries) CheckUserAuth(ctx context.Context, arg CheckUserAuthParams) (CheckUserAuthRow, error) {
+func (q *Queries) CheckUserAuth(ctx context.Context, arg CheckUserAuthParams) (User, error) {
 	row := q.db.QueryRow(ctx, checkUserAuth, arg.Username, arg.HashedPassword)
-	var i CheckUserAuthRow
-	err := row.Scan(&i.UserID, &i.Username, &i.UserToken)
+	var i User
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.HashedPassword,
+		&i.UserToken,
+	)
 	return i, err
 }
 
@@ -40,7 +39,7 @@ const createUser = `-- name: CreateUser :one
 INSERT INTO users (
   username, hashed_password, user_token
 ) VALUES (
-  $1, $2, gen_random_uuid()
+  $1, $2, uuid_generate_v4()
 )
 RETURNING user_id, username, hashed_password, user_token
 `
@@ -77,16 +76,21 @@ func (q *Queries) GetUserToken(ctx context.Context, userID int64) (pgtype.UUID, 
 
 const resetUserToken = `-- name: ResetUserToken :one
 UPDATE users
-SET user_token = gen_random_uuid()
+SET user_token = uuid_generate_v4()
 WHERE user_id = $1
-RETURNING user_token
+RETURNING user_id, username, hashed_password, user_token
 `
 
-func (q *Queries) ResetUserToken(ctx context.Context, userID int64) (pgtype.UUID, error) {
+func (q *Queries) ResetUserToken(ctx context.Context, userID int64) (User, error) {
 	row := q.db.QueryRow(ctx, resetUserToken, userID)
-	var user_token pgtype.UUID
-	err := row.Scan(&user_token)
-	return user_token, err
+	var i User
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.HashedPassword,
+		&i.UserToken,
+	)
+	return i, err
 }
 
 const updateUser = `-- name: UpdateUser :exec
