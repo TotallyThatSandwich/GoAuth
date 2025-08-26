@@ -7,8 +7,8 @@ import (
 	"github.com/TotallyThatSandwich/GoAuth/internal/sqlc"
 )
 
-func New(ctx context.Context, db_url string, cache_url string) *UserRepository {
-	return UserRepository{db: sqlc.New(pgx.Connect(ctx, db_url)), cache: cache.New(cache_url)}
+func New(ctx context.Context, db_url string, cache_addr string, cache_paswd string) *UserRepository {
+	return UserRepository{db: sqlc.New(pgx.Connect(ctx, db_url)), cache: cache.New(cache_addr, cache_paswd)}
 }
 
 type UserRepository struct {
@@ -16,25 +16,18 @@ type UserRepository struct {
     cache *redis.Client
 }
 
-func (r *UserRepository) CheckUserAuth(ctx context.Context, username string, password_hash string) (*sqlc.User, error) {
-    // check redis first
-	key := fmt.Sprintf("user:%s:%s", username, password_hash)
-    if val, err := r.cache.Get(ctx, key).Result(); err == nil {
-        var u sqlc.User
-        _ = json.Unmarshal([]byte(val), &u)
-		return &u, nil
-    }
+func (r *UserRepository) TestRepo(ctx context.Context) string {
 
-    user, err := r.db.CheckUserAuth(ctx, sqlc.CheckUserAuthParams{Username username, HashedPassword password_hash})
-    if err != nil {
-        return nil, err
-    }
+	err := r.cache.Set(ctx, "foo", "bar", 0).Err()
+	if err != nil {
+    	panic(err)
+	}
 
-    // update cache
-    data, _ := json.Marshal(user)
-	key := fmt.Sprintf("user:%s:%s", username, password_hash)
-    r.cache.Set(ctx, key, data, time.Hour)
-    return user, nil
+	val, err := r.cache.Get(ctx, "foo").Result()
+	if err != nil {
+    	panic(err)
+	}
+	return val
 }
 
 

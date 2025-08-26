@@ -7,11 +7,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func New(db string) *redis.Client {
-	opt, err := redis.ParseURL(db)
-	if err != nil {
-		panic(err)
-	}
-
-	return redis.NewClient(opt)
+func New(address string, password string) *redis.Client {
+    return redis.NewClient(&redis.Options{
+		Addr: address,
+        Password: password,
+        DB: 0,
+        Protocol: 2,
+	})
 }
