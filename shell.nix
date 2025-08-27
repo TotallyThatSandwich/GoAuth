@@ -6,6 +6,9 @@ pkgs.mkShell {
     	pkgs.go
     	pkgs.sqlc
 		pkgs.cloudflared
+
+		pkgs.redis
+		pkgs.postgresql
   	];
 	shellHook = ''
     	echo "Starting Cloudflared tunnels..."

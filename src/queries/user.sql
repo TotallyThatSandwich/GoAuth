@@ -6,6 +6,10 @@ INSERT INTO users (
 )
 RETURNING *;
 
+-- name: DeleteUser :exec
+DELETE FROM users
+WHERE user_id = $1;
+
 -- name: CheckUserAuth :one
 SELECT *
 FROM users
