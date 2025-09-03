@@ -13,8 +13,8 @@ const healthCheck = `-- name: HealthCheck :one
 SELECT 1
 `
 
-func (q *Queries) HealthCheck(ctx context.Context) (int32, error) {
-	row := q.db.QueryRow(ctx, healthCheck)
+func (q *Queries) HealthCheck(ctx context.Context, db DBTX) (int32, error) {
+	row := db.QueryRow(ctx, healthCheck)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err

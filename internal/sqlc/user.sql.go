@@ -11,20 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const checkUserAuth = `-- name: CheckUserAuth :one
+const checkUserToken = `-- name: CheckUserToken :one
 SELECT user_id, username, hashed_password, user_token
 FROM users
-WHERE username = $1
-  AND hashed_password = $2
+WHERE user_token = $1
 `
 
-type CheckUserAuthParams struct {
-	Username       string
-	HashedPassword string
-}
-
-func (q *Queries) CheckUserAuth(ctx context.Context, arg CheckUserAuthParams) (User, error) {
-	row := q.db.QueryRow(ctx, checkUserAuth, arg.Username, arg.HashedPassword)
+func (q *Queries) CheckUserToken(ctx context.Context, db DBTX, userToken pgtype.UUID) (User, error) {
+	row := db.QueryRow(ctx, checkUserToken, userToken)
 	var i User
 	err := row.Scan(
 		&i.UserID,
@@ -38,9 +32,7 @@ func (q *Queries) CheckUserAuth(ctx context.Context, arg CheckUserAuthParams) (U
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
   username, hashed_password, user_token
-) VALUES (
-  $1, $2, uuid_generate_v4()
-)
+) VALUES ( $1, $2, uuid_generate_v4() )
 RETURNING user_id, username, hashed_password, user_token
 `
 
@@ -49,8 +41,8 @@ type CreateUserParams struct {
 	HashedPassword string
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Username, arg.HashedPassword)
+func (q *Queries) CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (User, error) {
+	row := db.QueryRow(ctx, createUser, arg.Username, arg.HashedPassword)
 	var i User
 	err := row.Scan(
 		&i.UserID,
@@ -64,11 +56,59 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 const deleteUser = `-- name: DeleteUser :exec
 DELETE FROM users
 WHERE user_id = $1
+	AND user_token = $2
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, userID int64) error {
-	_, err := q.db.Exec(ctx, deleteUser, userID)
+type DeleteUserParams struct {
+	UserID    int64
+	UserToken pgtype.UUID
+}
+
+func (q *Queries) DeleteUser(ctx context.Context, db DBTX, arg DeleteUserParams) error {
+	_, err := db.Exec(ctx, deleteUser, arg.UserID, arg.UserToken)
 	return err
+}
+
+const getUser = `-- name: GetUser :one
+SELECT user_id, username, hashed_password, user_token
+FROM users
+WHERE username = $1
+  AND hashed_password = $2
+`
+
+type GetUserParams struct {
+	Username       string
+	HashedPassword string
+}
+
+func (q *Queries) GetUser(ctx context.Context, db DBTX, arg GetUserParams) (User, error) {
+	row := db.QueryRow(ctx, getUser, arg.Username, arg.HashedPassword)
+	var i User
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.HashedPassword,
+		&i.UserToken,
+	)
+	return i, err
+}
+
+const getUserFromID = `-- name: GetUserFromID :one
+SELECT user_id, username, hashed_password, user_token
+FROM users
+WHERE user_id = $1
+`
+
+func (q *Queries) GetUserFromID(ctx context.Context, db DBTX, userID int64) (User, error) {
+	row := db.QueryRow(ctx, getUserFromID, userID)
+	var i User
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.HashedPassword,
+		&i.UserToken,
+	)
+	return i, err
 }
 
 const getUserToken = `-- name: GetUserToken :one
@@ -77,8 +117,8 @@ FROM users
 WHERE user_id = $1
 `
 
-func (q *Queries) GetUserToken(ctx context.Context, userID int64) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, getUserToken, userID)
+func (q *Queries) GetUserToken(ctx context.Context, db DBTX, userID int64) (pgtype.UUID, error) {
+	row := db.QueryRow(ctx, getUserToken, userID)
 	var user_token pgtype.UUID
 	err := row.Scan(&user_token)
 	return user_token, err
@@ -91,8 +131,8 @@ WHERE user_id = $1
 RETURNING user_id, username, hashed_password, user_token
 `
 
-func (q *Queries) ResetUserToken(ctx context.Context, userID int64) (User, error) {
-	row := q.db.QueryRow(ctx, resetUserToken, userID)
+func (q *Queries) ResetUserToken(ctx context.Context, db DBTX, userID int64) (User, error) {
+	row := db.QueryRow(ctx, resetUserToken, userID)
 	var i User
 	err := row.Scan(
 		&i.UserID,
@@ -103,19 +143,28 @@ func (q *Queries) ResetUserToken(ctx context.Context, userID int64) (User, error
 	return i, err
 }
 
-const updateUser = `-- name: UpdateUser :exec
+const updateUser = `-- name: UpdateUser :one
 UPDATE users
 	SET username = $1,
     hashed_password = $2
-WHERE user_id = $1
+WHERE user_id = $3
+RETURNING user_id, username, hashed_password, user_token
 `
 
 type UpdateUserParams struct {
 	Username       string
 	HashedPassword string
+	UserID         int64
 }
 
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
-	_, err := q.db.Exec(ctx, updateUser, arg.Username, arg.HashedPassword)
-	return err
+func (q *Queries) UpdateUser(ctx context.Context, db DBTX, arg UpdateUserParams) (User, error) {
+	row := db.QueryRow(ctx, updateUser, arg.Username, arg.HashedPassword, arg.UserID)
+	var i User
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.HashedPassword,
+		&i.UserToken,
+	)
+	return i, err
 }

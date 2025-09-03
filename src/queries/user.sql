@@ -1,31 +1,41 @@
 -- name: CreateUser :one
 INSERT INTO users (
   username, hashed_password, user_token
-) VALUES (
-  $1, $2, uuid_generate_v4()
-)
+) VALUES ( $1, $2, uuid_generate_v4() )
 RETURNING *;
 
 -- name: DeleteUser :exec
 DELETE FROM users
-WHERE user_id = $1;
+WHERE user_id = $1
+	AND user_token = $2;
 
--- name: CheckUserAuth :one
+-- name: GetUser :one
 SELECT *
 FROM users
 WHERE username = $1
   AND hashed_password = $2;
+
+-- name: GetUserFromID :one
+SELECT *
+FROM users
+WHERE user_id = $1;
 
 -- name: GetUserToken :one
 SELECT user_token
 FROM users
 WHERE user_id = $1;
 
--- name: UpdateUser :exec
+-- name: CheckUserToken :one
+SELECT *
+FROM users
+WHERE user_token = $1;
+
+-- name: UpdateUser :one
 UPDATE users
 	SET username = $1,
     hashed_password = $2
-WHERE user_id = $1;
+WHERE user_id = $3
+RETURNING *;
 
 -- name: ResetUserToken :one
 UPDATE users

@@ -10,6 +10,7 @@ sql:
         package: "sqlc"
         out: "internal/sqlc"
         sql_package: "pgx/v5"
+        emit_methods_with_db_argument: true
         overrides:
           - db_type: "uuid"
             go_type:
